@@ -1,0 +1,73 @@
+---
+title: "Logistic Regression On Titanic Data"
+author: "Akash Barnwal"
+date: "March 28, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+
+```{r}
+setwd("E:/DataScience/Titanic DataSet")
+
+# na.strings is equal to c("") so that each missing value is coded as a NA
+titanic_training = read.csv("train.csv", header=T, na.strings=c(""))
+
+View(titanic_training)
+
+# Looking for missing values
+sapply(titanic_training,function(x) sum(is.na(x)))
+
+# Loking for unique values
+sapply(titanic_training, function(x) length(unique(x)))
+
+library(Amelia)
+missmap(titanic_training, main = "Missing values vs observed")
+
+data <- subset(titanic_training,select=c(2,3,5,6,7,8,10,12))
+
+# Replacing the missing values with the average
+data$Age[is.na(data$Age)] <- mean(data$Age,na.rm=T)
+
+# Contrast is used to see how R is going to deal with categorical variables. 
+
+contrasts(data$Sex)
+contrasts(data$Embarked)
+
+# For the missing values in "Embarked", we will discard them since there are only two missing values.
+
+data <- data[!is.na(data$Embarked),]
+
+rownames(data) <- NULL
+
+train <- data[1:800,]
+test <- data[801:889,]
+
+model <- glm(Survived ~.,family=binomial(link='logit'),data=train)
+summary(model)
+
+anova(model, test="Chisq")
+
+fitted.results <- predict(model,newdata=subset(test,select=c(2,3,4,5,6,7,8)),type='response')
+fitted.results <- ifelse(fitted.results > 0.5,1,0)
+
+misClasificError <- mean(fitted.results != test$Survived)
+print(paste('Accuracy',1-misClasificError))
+
+
+library(ROCR)
+p <- predict(model, newdata=subset(test,select=c(2,3,4,5,6,7,8)), type="response")
+pr <- prediction(p, test$Survived)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+```
+
+
